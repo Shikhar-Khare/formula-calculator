@@ -1,10 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Latex from "react-latex-next";
 import "katex/dist/katex.min.css";
 
 const evaluateFormula = (formula, variables) => {
   try {
-    // Replace variables with their values
     let processedFormula = formula;
     Object.keys(variables).forEach((variable) => {
       const regex = new RegExp(`\\b${variable}\\b`, "g");
@@ -12,10 +11,7 @@ const evaluateFormula = (formula, variables) => {
     });
 
     const evaluateExpression = (expr) => {
-      // Remove spaces
       expr = expr.replace(/\s+/g, "");
-
-      // Find innermost parentheses and evaluate them first
       let parenthesesMatch = /\(([^()]+)\)/.exec(expr);
       while (parenthesesMatch) {
         const result = evaluateBasicExpression(parenthesesMatch[1]);
@@ -25,48 +21,29 @@ const evaluateFormula = (formula, variables) => {
           expr.substring(parenthesesMatch.index + parenthesesMatch[0].length);
         parenthesesMatch = /\(([^()]+)\)/.exec(expr);
       }
-
       return evaluateBasicExpression(expr);
     };
 
     const evaluateBasicExpression = (expr) => {
-      // Handle exponents
       while (expr.match(/(-?\d*\.?\d+)\^(-?\d*\.?\d+)/)) {
         expr = expr.replace(/(-?\d*\.?\d+)\^(-?\d*\.?\d+)/g, (_, base, exp) =>
           Math.pow(parseFloat(base), parseFloat(exp))
         );
       }
-
-      // Handle multiplication and division
       while (expr.match(/(-?\d*\.?\d+)([*/])(-?\d*\.?\d+)/)) {
         expr = expr.replace(
           /(-?\d*\.?\d+)([*/])(-?\d*\.?\d+)/g,
-          (_, a, op, b) => {
-            a = parseFloat(a);
-            b = parseFloat(b);
-            return op === "*" ? a * b : b === 0 ? NaN : a / b;
-          }
+          (_, a, op, b) => (op === "*" ? a * b : b === 0 ? NaN : a / b)
         );
       }
-
-      // Handle addition and subtraction
       while (expr.match(/(-?\d*\.?\d+)([+-])(-?\d*\.?\d+)/)) {
         expr = expr.replace(
           /(-?\d*\.?\d+)([+-])(-?\d*\.?\d+)/g,
-          (_, a, op, b) => {
-            return op === "+"
-              ? parseFloat(a) + parseFloat(b)
-              : parseFloat(a) - parseFloat(b);
-          }
+          (_, a, op, b) =>
+            op === "+" ? parseFloat(a) + parseFloat(b) : parseFloat(a) - b
         );
       }
-
-      // If the expression is just a number, return it
-      if (/^-?\d*\.?\d+$/.test(expr)) {
-        return parseFloat(expr);
-      }
-
-      return NaN;
+      return /^-?\d*\.?\d+$/.test(expr) ? parseFloat(expr) : NaN;
     };
 
     const result = evaluateExpression(processedFormula);
@@ -79,14 +56,8 @@ const evaluateFormula = (formula, variables) => {
 
 const convertToLatex = (input) => {
   if (!input) return "";
-
-  // Remove spaces
   let formula = input.replace(/\s+/g, "");
-
-  // Handle simple exponents
   formula = formula.replace(/\^([a-zA-Z\d])/g, "^{$1}");
-
-  // Handle complex exponents with subscripts inside parentheses
   formula = formula.replace(/\^[\(]([^)]+)[\)]/g, (_, group) => {
     const convertedGroup = group.replace(
       /([a-zA-Z])_([a-zA-Z\d]+)/g,
@@ -94,22 +65,13 @@ const convertToLatex = (input) => {
     );
     return `^{${convertedGroup}}`;
   });
-
-  // Handle simple subscripts
   formula = formula.replace(/([a-zA-Z])_([a-zA-Z\d]+)/g, "$1_{$2}");
-
-  // Replace operators
   formula = formula.replace(/\*/g, "\\cdot ");
   formula = formula.replace(/\//g, "\\div ");
-
-  // Handle parentheses
   formula = formula.replace(/\(/g, "\\left(");
   formula = formula.replace(/\)/g, "\\right)");
-
-  // Add spaces around operators
   formula = formula.replace(/\+/g, " + ");
   formula = formula.replace(/(?<!^)\s*-\s*/g, " - ");
-
   return formula;
 };
 
@@ -119,25 +81,41 @@ function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [latexFormula, setLatexFormula] = useState("");
+  const [savedFormulas, setSavedFormulas] = useState([]);
+  const [isListOpen, setIsListOpen] = useState(false);
 
-  const handleFormulaChange = (e) => {
-    const newFormula = e.target.value;
-    setFormula(newFormula);
-    setLatexFormula(convertToLatex(newFormula));
+  useEffect(() => {
+    const savedFormula = localStorage.getItem("formula");
+    const savedFormulasList =
+      JSON.parse(localStorage.getItem("savedFormulas")) || [];
 
-    // Extract variables
+    if (savedFormula) {
+      setFormula(savedFormula);
+      setLatexFormula(convertToLatex(savedFormula));
+      updateVariables(savedFormula);
+    }
+
+    setSavedFormulas(savedFormulasList);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("formula", formula);
+  }, [formula]);
+
+  useEffect(() => {
+    localStorage.setItem("savedFormulas", JSON.stringify(savedFormulas));
+  }, [savedFormulas]);
+
+  const updateVariables = (newFormula) => {
     const variableRegex = /\b[a-zA-Z]\b/g;
     const matchedVariables = [
       ...new Set(newFormula.match(variableRegex) || []),
     ];
-
     const newVariables = {};
     matchedVariables.forEach(
       (variable) => (newVariables[variable] = variables[variable] || 0)
     );
     setVariables(newVariables);
-
-    // Calculate result
     const calculatedResult = evaluateFormula(newFormula, newVariables);
     setResult(calculatedResult);
     setError(
@@ -145,16 +123,39 @@ function App() {
     );
   };
 
+  const handleFormulaChange = (e) => {
+    const newFormula = e.target.value;
+    setFormula(newFormula);
+    setLatexFormula(convertToLatex(newFormula));
+    updateVariables(newFormula);
+  };
+
   const handleVariableChange = (key, value) => {
     const updatedVariables = { ...variables, [key]: parseFloat(value) || 0 };
     setVariables(updatedVariables);
-
-    // Recalculate result when variables change
     const calculatedResult = evaluateFormula(formula, updatedVariables);
     setResult(calculatedResult);
     setError(
       calculatedResult === "Invalid Formula" ? "Invalid formula entered" : ""
     );
+  };
+
+  const handleSaveFormula = () => {
+    if (formula && !savedFormulas.includes(formula)) {
+      setSavedFormulas([...savedFormulas, formula]);
+    }
+  };
+
+  const handleLoadFormula = (selectedFormula) => {
+    setFormula(selectedFormula);
+    setLatexFormula(convertToLatex(selectedFormula));
+    updateVariables(selectedFormula);
+    setIsListOpen(false);
+  };
+
+  const handleDeleteFormula = (formulaToDelete, event) => {
+    event.stopPropagation();
+    setSavedFormulas(savedFormulas.filter((f) => f !== formulaToDelete));
   };
 
   return (
@@ -164,13 +165,57 @@ function App() {
 
         <div className="input-group">
           <label className="label">Enter Formula</label>
-          <input
-            type="text"
-            placeholder="e.g., (x + y)^2 * z"
-            value={formula}
-            onChange={handleFormulaChange}
-            className="input-field"
-          />
+          <div className="formula-input-container">
+            <input
+              type="text"
+              placeholder="e.g., (x + y)^2 * z"
+              value={formula}
+              onChange={handleFormulaChange}
+              className="input-field"
+            />
+            <button
+              onClick={handleSaveFormula}
+              className="save-button"
+              disabled={!formula || savedFormulas.includes(formula)}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div className="saved-formulas">
+          <button
+            className="toggle-list-button"
+            onClick={() => setIsListOpen(!isListOpen)}
+          >
+            {isListOpen ? "Hide Saved Formulas" : "Show Saved Formulas"}
+          </button>
+
+          {isListOpen && (
+            <div className="formulas-list">
+              {savedFormulas.length === 0 ? (
+                <div className="no-formulas">No saved formulas</div>
+              ) : (
+                savedFormulas.map((savedFormula, index) => (
+                  <div
+                    key={index}
+                    className="formula-item"
+                    onClick={() => handleLoadFormula(savedFormula)}
+                  >
+                    <div className="formula-latex">
+                      <Latex>{"$" + convertToLatex(savedFormula) + "$"}</Latex>
+                    </div>
+                    <button
+                      className="delete-button"
+                      onClick={(e) => handleDeleteFormula(savedFormula, e)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         <div className="support-info text-sm text-gray-600 mt-2">
