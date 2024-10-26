@@ -1,141 +1,166 @@
-/* App Styles */
+/* index.css */
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
 .app-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   min-height: 100vh;
-  background: linear-gradient(to bottom right, #ebf8ff, #5a67d8);
-  padding: 3rem 1rem;
+  background: linear-gradient(to bottom right, #E0F2FE, #C7D2FE); /* Gradient background */
+  padding: 16px; /* Adjust padding for better spacing */
+  box-sizing: border-box;
 }
 
 .calculator-card {
-  max-width: 40rem;
-  margin: 0 auto;
-  background: #ffffff;
-  border-radius: 1rem;
+  background-color: #FFFFFF;
+  border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  padding: 2rem;
+  padding: 24px;
+  max-width: 100%; /* Allow full width on smaller screens */
+  width: 600px; /* Fixed width for larger screens */
+  overflow: hidden; /* Prevent scrollbars from appearing */
+  opacity: 0; /* Initial opacity for animation */
+  transform: translateY(20px); /* Initial position for animation */
+  animation: fadeInUp 0.8s forwards; /* Animation on load */
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1; /* Final opacity */
+    transform: translateY(0); /* Final position */
+  }
 }
 
 .title {
-  font-size: 2rem;
+  font-size: 24px;
   font-weight: bold;
-  color: #4a5568;
-  margin-bottom: 2rem;
+  color: #1F2937;
+  margin-bottom: 24px;
   text-align: center;
 }
 
 .input-group {
-  margin-bottom: 2rem;
+  margin-bottom: 24px;
 }
 
 .label {
   display: block;
-  font-size: 0.875rem;
-  font-weight: medium;
-  color: #4a5568;
-  margin-bottom: 0.5rem;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4B5563;
+  margin-bottom: 8px;
 }
 
 .input-field {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #cbd5e0;
-  border-radius: 0.5rem;
-  transition: border-color 0.2s;
+  padding: 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease-in-out;
 }
 
 .input-field:focus {
-  border-color: #3182ce;
   outline: none;
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
 }
 
 .latex-preview {
-  margin-bottom: 2rem;
-  background: #f7fafc;
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  border: 1px solid #e2e8f0;
+  margin-bottom: 24px;
 }
 
 .preview-title {
-  font-size: 0.875rem;
-  font-weight: medium;
-  color: #4a5568;
-  margin-bottom: 0.5rem;
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
 }
 
 .latex-output {
+  background-color: #F9FAFB;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #E5E7EB;
   min-height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  text-align: center;
 }
 
 .variables-input {
-  margin-bottom: 2rem;
+  margin-bottom: 24px;
 }
 
 .variables-title {
-  font-size: 0.875rem;
-  font-weight: medium;
-  color: #4a5568;
-  margin-bottom: 1rem;
+  font-size: 16px;
+  font-weight: 500;
+  color: #4B5563;
+  margin-bottom: 16px;
 }
 
 .variables-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 16px;
 }
 
 .variable-item {
-  background: #f7fafc;
-  padding: 1rem;
-  border-radius: 0.5rem;
+  background-color: #F3F4F6;
+  padding: 16px;
+  border-radius: 8px;
 }
 
 .variable-label {
   display: block;
-  font-size: 0.875rem;
-  font-weight: medium;
-  color: #4a5568;
-  margin-bottom: 0.5rem;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
 }
 
 .variable-input {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #cbd5e0;
-  border-radius: 0.25rem;
+  padding: 8px;
+  border: 1px solid #D1D5DB;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .result-display {
-  background: #ebf8ff;
-  border-radius: 0.5rem;
-  padding: 1.5rem;
+  background-color: #E0F2FE;
+  border-radius: 8px;
+  padding: 16px;
   text-align: center;
+  margin-top: 24px;
 }
 
 .result-title {
-  font-size: 0.875rem;
-  font-weight: medium;
-  color: #4a5568;
-  margin-bottom: 0.5rem;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
 }
 
 .result-value {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #2d3748;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1F2937;
 }
 
 .error-display {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: #fed7e2;
-  border-radius: 0.5rem;
+  margin-top: 16px;
+  background-color: #FEE2E2; /* Light red for error display */
+  border-radius: 8px;
+  padding: 12px;
 }
 
 .error-message {
-  color: #e53e3e;
+  color: #B91C1C; /* Dark red for error message */
   text-align: center;
 }
