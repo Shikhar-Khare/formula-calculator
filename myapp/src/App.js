@@ -2,77 +2,259 @@ import React, { useState, useEffect } from "react";
 import Latex from "react-latex-next";
 import "katex/dist/katex.min.css";
 
+const tokenize = (formula) => {
+  const tokens = [];
+  let current = "";
+  let i = 0;
+
+  while (i < formula.length) {
+    const char = formula[i];
+
+    if (/\s/.test(char)) {
+      if (current) {
+        tokens.push(current);
+        current = "";
+      }
+      i++;
+      continue;
+    }
+
+    if ("+-*/^()".includes(char)) {
+      if (current) {
+        tokens.push(current);
+        current = "";
+      }
+      tokens.push(char);
+      i++;
+      continue;
+    }
+
+    current += char;
+    i++;
+  }
+
+  if (current) {
+    tokens.push(current);
+  }
+
+  return tokens;
+};
+
+const parse = (tokens) => {
+  let position = 0;
+
+  const parseNumber = () => {
+    const token = tokens[position];
+    if (!token) return null;
+    const num = parseFloat(token);
+    if (!isNaN(num)) {
+      position++;
+      return { type: "number", value: num };
+    }
+    return null;
+  };
+
+  const parseVariable = () => {
+    const token = tokens[position];
+    if (!token) return null;
+    if (/^[a-zA-Z]$/.test(token)) {
+      position++;
+      return { type: "variable", name: token };
+    }
+    return null;
+  };
+
+  const parseFactor = () => {
+    if (tokens[position] === "(") {
+      position++; // consume '('
+      const expr = parseExpression();
+      if (tokens[position] === ")") {
+        position++; // consume ')'
+        return expr;
+      }
+      throw new Error("Missing closing parenthesis");
+    }
+
+    return parseNumber() || parseVariable();
+  };
+
+  const parsePower = () => {
+    let left = parseFactor();
+
+    while (tokens[position] === "^") {
+      position++; // consume '^'
+      const right = parsePower(); // right-associative
+      left = {
+        type: "operator",
+        operator: "^",
+        left,
+        right,
+      };
+    }
+
+    return left;
+  };
+
+  const parseTerm = () => {
+    let left = parsePower();
+
+    while (tokens[position] === "*" || tokens[position] === "/") {
+      const operator = tokens[position];
+      position++; // consume operator
+      const right = parsePower();
+      left = {
+        type: "operator",
+        operator,
+        left,
+        right,
+      };
+    }
+
+    return left;
+  };
+
+  const parseExpression = () => {
+    let left = parseTerm();
+
+    while (tokens[position] === "+" || tokens[position] === "-") {
+      const operator = tokens[position];
+      position++; // consume operator
+      const right = parseTerm();
+      left = {
+        type: "operator",
+        operator,
+        left,
+        right,
+      };
+    }
+
+    return left;
+  };
+
+  return parseExpression();
+};
+
+const evaluate = (ast, variables) => {
+  if (!ast) return 0;
+
+  const MAX_SAFE_RESULT = 1e308;
+
+  const checkValue = (value) => {
+    if (!isFinite(value)) {
+      throw new Error("Maximum value reached: Result is too large");
+    }
+    if (Math.abs(value) > MAX_SAFE_RESULT) {
+      throw new Error(
+        "Maximum value reached: Result exceeds safe calculation limit"
+      );
+    }
+    return value;
+  };
+
+  try {
+    switch (ast.type) {
+      case "number":
+        return checkValue(ast.value);
+      case "variable":
+        return checkValue(variables[ast.name] || 0);
+      case "operator":
+        const left = evaluate(ast.left, variables);
+        const right = evaluate(ast.right, variables);
+
+        let result;
+        switch (ast.operator) {
+          case "+":
+            result = left + right;
+            break;
+          case "-":
+            result = left - right;
+            break;
+          case "*":
+            result = left * right;
+            break;
+          case "/":
+            if (right === 0) {
+              throw new Error("Division by zero");
+            }
+            result = left / right;
+            break;
+          case "^":
+            if (right > 1000) {
+              throw new Error("Maximum value reached: Exponent too large");
+            }
+            if (Math.abs(left) > 1e154 && right > 2) {
+              throw new Error(
+                "Maximum value reached: Base value too large for exponentiation"
+              );
+            }
+            result = Math.pow(left, right);
+            break;
+          default:
+            return NaN;
+        }
+        return checkValue(result);
+      default:
+        return NaN;
+    }
+  } catch (error) {
+    throw error;
+  }
+};
+
+const astToLatex = (ast) => {
+  if (!ast) return "";
+
+  switch (ast.type) {
+    case "number":
+      return ast.value.toString();
+    case "variable":
+      return ast.name;
+    case "operator":
+      const left = astToLatex(ast.left);
+      const right = astToLatex(ast.right);
+      switch (ast.operator) {
+        case "+":
+          return `${left} + ${right}`;
+        case "-":
+          return `${left} - ${right}`;
+        case "*":
+          return `${left} \\cdot ${right}`;
+        case "/":
+          return `\\frac{${left}}{${right}}`;
+        case "^":
+          const needsParens = ast.left.type === "operator";
+          const leftPart = needsParens ? `\\left(${left}\\right)` : left;
+          return `${leftPart}^{${right}}`;
+        default:
+          return "";
+      }
+    default:
+      return "";
+  }
+};
+
 const evaluateFormula = (formula, variables) => {
   try {
-    let processedFormula = formula;
-    Object.keys(variables).forEach((variable) => {
-      const regex = new RegExp(`\\b${variable}\\b`, "g");
-      processedFormula = processedFormula.replace(regex, variables[variable]);
-    });
-
-    const evaluateExpression = (expr) => {
-      expr = expr.replace(/\s+/g, "");
-      let parenthesesMatch = /\(([^()]+)\)/.exec(expr);
-      while (parenthesesMatch) {
-        const result = evaluateBasicExpression(parenthesesMatch[1]);
-        expr =
-          expr.substring(0, parenthesesMatch.index) +
-          result +
-          expr.substring(parenthesesMatch.index + parenthesesMatch[0].length);
-        parenthesesMatch = /\(([^()]+)\)/.exec(expr);
-      }
-      return evaluateBasicExpression(expr);
-    };
-
-    const evaluateBasicExpression = (expr) => {
-      while (expr.match(/(-?\d*\.?\d+)\^(-?\d*\.?\d+)/)) {
-        expr = expr.replace(/(-?\d*\.?\d+)\^(-?\d*\.?\d+)/g, (_, base, exp) =>
-          Math.pow(parseFloat(base), parseFloat(exp))
-        );
-      }
-      while (expr.match(/(-?\d*\.?\d+)([*/])(-?\d*\.?\d+)/)) {
-        expr = expr.replace(
-          /(-?\d*\.?\d+)([*/])(-?\d*\.?\d+)/g,
-          (_, a, op, b) => (op === "*" ? a * b : b === 0 ? NaN : a / b)
-        );
-      }
-      while (expr.match(/(-?\d*\.?\d+)([+-])(-?\d*\.?\d+)/)) {
-        expr = expr.replace(
-          /(-?\d*\.?\d+)([+-])(-?\d*\.?\d+)/g,
-          (_, a, op, b) =>
-            op === "+" ? parseFloat(a) + parseFloat(b) : parseFloat(a) - b
-        );
-      }
-      return /^-?\d*\.?\d+$/.test(expr) ? parseFloat(expr) : NaN;
-    };
-
-    const result = evaluateExpression(processedFormula);
-    return isNaN(result) || !isFinite(result) ? "Invalid Expression" : result;
+    const tokens = tokenize(formula);
+    const ast = parse(tokens);
+    const result = evaluate(ast, variables);
+    return isNaN(result) ? "Invalid Expression" : result;
   } catch (error) {
     console.error("Evaluation error:", error);
-    return "Invalid Formula";
+    return error.message || "Invalid Formula";
   }
 };
 
 const convertToLatex = (input) => {
   if (!input) return "";
-  let formula = input.replace(/\s+/g, "");
-  formula = formula.replace(/\^([a-zA-Z\d])/g, "^{$1}");
-  formula = formula.replace(/\^[\(]([^)]+)[\)]/g, (_, group) => {
-    const convertedGroup = group.replace(
-      /([a-zA-Z])_([a-zA-Z\d]+)/g,
-      "$1_{$2}"
-    );
-    return `^{${convertedGroup}}`;
-  });
-  formula = formula.replace(/([a-zA-Z])_([a-zA-Z\d]+)/g, "$1_{$2}");
-  formula = formula.replace(/\*/g, "\\cdot ");
-  formula = formula.replace(/\//g, "\\div ");
-  formula = formula.replace(/\(/g, "\\left(");
-  formula = formula.replace(/\)/g, "\\right)");
-  formula = formula.replace(/\+/g, " + ");
-  formula = formula.replace(/(?<!^)\s*-\s*/g, " - ");
-  return formula;
+  try {
+    const tokens = tokenize(input);
+    const ast = parse(tokens);
+    return astToLatex(ast);
+  } catch (error) {
+    console.error("LaTeX conversion error:", error);
+    return input;
+  }
 };
 
 function App() {
@@ -118,9 +300,7 @@ function App() {
     setVariables(newVariables);
     const calculatedResult = evaluateFormula(newFormula, newVariables);
     setResult(calculatedResult);
-    setError(
-      calculatedResult === "Invalid Formula" ? "Invalid formula entered" : ""
-    );
+    setError(typeof calculatedResult === "string" ? calculatedResult : "");
   };
 
   const handleFormulaChange = (e) => {
@@ -135,9 +315,7 @@ function App() {
     setVariables(updatedVariables);
     const calculatedResult = evaluateFormula(formula, updatedVariables);
     setResult(calculatedResult);
-    setError(
-      calculatedResult === "Invalid Formula" ? "Invalid formula entered" : ""
-    );
+    setError(typeof calculatedResult === "string" ? calculatedResult : "");
   };
 
   const handleSaveFormula = () => {
@@ -168,7 +346,7 @@ function App() {
           <div className="formula-input-container">
             <input
               type="text"
-              placeholder="e.g., (x + y)^2 * z"
+              placeholder="e.g., x^(a+b)^z"
               value={formula}
               onChange={handleFormulaChange}
               className="input-field"
@@ -218,13 +396,6 @@ function App() {
           )}
         </div>
 
-        <div className="support-info text-sm text-gray-600 mt-2">
-          <p>
-            Supports: Basic arithmetic operations (+, -, *, /), exponents (^),
-            and parentheses
-          </p>
-        </div>
-
         <div className="latex-preview">
           <h2 className="preview-title">LaTeX Preview</h2>
           <div className="latex-output">
@@ -269,6 +440,14 @@ function App() {
             <p className="error-message">{error}</p>
           </div>
         )}
+
+        <div className="support-info text-sm text-gray-600 mt-2">
+          <p>
+            Supports: Basic arithmetic operations (+, -, *, /), exponents (^),
+            and parentheses. Nested exponents like x^(a+b)^z are supported.
+            Maximum safe calculation limits apply.
+          </p>
+        </div>
       </div>
     </div>
   );
