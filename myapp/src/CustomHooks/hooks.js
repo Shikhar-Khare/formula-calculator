@@ -13,6 +13,32 @@ export const useFormulaCalculator = () => {
   const [error, setError] = useState("");
   const [latexFormula, setLatexFormula] = useState("");
 
+  const evaluateFormula = (formula, variables) => {
+    if (!formula.trim()) {
+      setResult(null);
+      setError("");
+      return null;
+    }
+
+    try {
+      const tokens = tokenize(formula);
+      const ast = parse(tokens);
+      const calculatedResult = evaluate(ast, variables);
+
+      if (isNaN(calculatedResult)) {
+        setError("Invalid Expression");
+        return "Invalid Expression";
+      }
+
+      setError("");
+      return calculatedResult;
+    } catch (error) {
+      console.error("Evaluation error:", error);
+      setError(error.message || "Invalid Formula");
+      return error.message || "Invalid Formula";
+    }
+  };
+
   const updateVariables = (newFormula) => {
     const variableRegex = /\b[a-zA-Z]\b/g;
     const matchedVariables = [
@@ -23,21 +49,9 @@ export const useFormulaCalculator = () => {
       (variable) => (newVariables[variable] = variables[variable] || 0)
     );
     setVariables(newVariables);
+
     const calculatedResult = evaluateFormula(newFormula, newVariables);
     setResult(calculatedResult);
-    setError(typeof calculatedResult === "string" ? calculatedResult : "");
-  };
-
-  const evaluateFormula = (formula, variables) => {
-    try {
-      const tokens = tokenize(formula);
-      const ast = parse(tokens);
-      const result = evaluate(ast, variables);
-      return isNaN(result) ? "Invalid Expression" : result;
-    } catch (error) {
-      console.error("Evaluation error:", error);
-      return error.message || "Invalid Formula";
-    }
   };
 
   const handleFormulaChange = (newFormula) => {
@@ -51,8 +65,14 @@ export const useFormulaCalculator = () => {
     setVariables(updatedVariables);
     const calculatedResult = evaluateFormula(formula, updatedVariables);
     setResult(calculatedResult);
-    setError(typeof calculatedResult === "string" ? calculatedResult : "");
   };
+
+  // Initial evaluation
+  useEffect(() => {
+    if (formula) {
+      updateVariables(formula);
+    }
+  }, []);
 
   return {
     formula,
@@ -64,17 +84,16 @@ export const useFormulaCalculator = () => {
     handleVariableChange,
   };
 };
-
 // hooks/useSavedFormulas.js
 
-export const useSavedFormulas = (initialFormula) => {
+export const useSavedFormulas = () => {
   const [savedFormulas, setSavedFormulas] = useState([]);
   const [isListOpen, setIsListOpen] = useState(false);
 
   useEffect(() => {
     const savedFormulasList =
       JSON.parse(localStorage.getItem("savedFormulas")) || [];
-    setSavedFormulas(savedFormulasList);
+    savedFormulasList.length && setSavedFormulas(savedFormulasList);
   }, []);
 
   useEffect(() => {

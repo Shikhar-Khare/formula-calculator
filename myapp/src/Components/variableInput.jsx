@@ -13,6 +13,7 @@ const VariablesInput = ({ variables, onVariableChange }) => {
               value={variables[variable]}
               onChange={(e) => onVariableChange(variable, e.target.value)}
               className="variable-input"
+              step="any" // Allows decimal input
             />
           </div>
         ))}

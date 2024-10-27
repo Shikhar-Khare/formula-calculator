@@ -1,4 +1,4 @@
-import { LatexPreview } from "./latexPreview";
+import Latex from "react-latex-next";
 
 const SavedFormulas = ({
   isListOpen,
@@ -29,9 +29,7 @@ const SavedFormulas = ({
                 onClick={() => onLoadFormula(savedFormula)}
               >
                 <div className="formula-latex">
-                  <LatexPreview>
-                    {"$" + convertToLatex(savedFormula) + "$"}
-                  </LatexPreview>
+                  <Latex>{"$" + convertToLatex(savedFormula) + "$"}</Latex>
                 </div>
                 <button
                   className="delete-button"
