@@ -10,6 +10,7 @@ const tokenize = (formula) => {
   while (i < formula.length) {
     const char = formula[i];
 
+    // Handle whitespace
     if (/\s/.test(char)) {
       if (current) {
         tokens.push(current);
@@ -19,6 +20,7 @@ const tokenize = (formula) => {
       continue;
     }
 
+    // Handle operators and parentheses
     if ("+-*/^()".includes(char)) {
       if (current) {
         tokens.push(current);
@@ -27,6 +29,28 @@ const tokenize = (formula) => {
       tokens.push(char);
       i++;
       continue;
+    }
+
+    // Look ahead for 'log' or 'ln' functions
+    if (char === "l") {
+      if (formula.substring(i, i + 2) === "ln") {
+        if (current) {
+          tokens.push(current);
+          current = "";
+        }
+        tokens.push("ln");
+        i += 2;
+        continue;
+      }
+      if (formula.substring(i, i + 3) === "log") {
+        if (current) {
+          tokens.push(current);
+          current = "";
+        }
+        tokens.push("log");
+        i += 3;
+        continue;
+      }
     }
 
     current += char;
@@ -64,6 +88,30 @@ const parse = (tokens) => {
     return null;
   };
 
+  const parseFunction = () => {
+    const token = tokens[position];
+    if (!token) return null;
+
+    if (token === "ln" || token === "log") {
+      position++; // consume function name
+      if (tokens[position] !== "(") {
+        throw new Error(`Missing opening parenthesis after ${token}`);
+      }
+      position++; // consume '('
+      const arg = parseExpression();
+      if (tokens[position] !== ")") {
+        throw new Error(`Missing closing parenthesis after ${token} argument`);
+      }
+      position++; // consume ')'
+      return {
+        type: "function",
+        name: token,
+        argument: arg,
+      };
+    }
+    return null;
+  };
+
   const parseFactor = () => {
     if (tokens[position] === "(") {
       position++; // consume '('
@@ -75,7 +123,7 @@ const parse = (tokens) => {
       throw new Error("Missing closing parenthesis");
     }
 
-    return parseNumber() || parseVariable();
+    return parseFunction() || parseNumber() || parseVariable();
   };
 
   const parsePower = () => {
@@ -157,6 +205,19 @@ const evaluate = (ast, variables) => {
         return checkValue(ast.value);
       case "variable":
         return checkValue(variables[ast.name] || 0);
+      case "function":
+        const argValue = evaluate(ast.argument, variables);
+        if (argValue <= 0) {
+          throw new Error(`Cannot compute logarithm of ${argValue}`);
+        }
+        switch (ast.name) {
+          case "ln":
+            return checkValue(Math.log(argValue));
+          case "log":
+            return checkValue(Math.log10(argValue));
+          default:
+            throw new Error(`Unknown function: ${ast.name}`);
+        }
       case "operator":
         const left = evaluate(ast.left, variables);
         const right = evaluate(ast.right, variables);
@@ -209,6 +270,16 @@ const astToLatex = (ast) => {
       return ast.value.toString();
     case "variable":
       return ast.name;
+    case "function":
+      const arg = astToLatex(ast.argument);
+      switch (ast.name) {
+        case "ln":
+          return `\\ln(${arg})`;
+        case "log":
+          return `\\log_{10}(${arg})`;
+        default:
+          return "";
+      }
     case "operator":
       const left = astToLatex(ast.left);
       const right = astToLatex(ast.right);
